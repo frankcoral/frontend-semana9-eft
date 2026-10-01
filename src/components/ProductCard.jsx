@@ -5,10 +5,16 @@ import { formatPrice } from "../utils/format";
  *
  * @param {Object} props Propiedades recibidas por el componente.
  * @param {Object} props.product Producto que se mostrará.
+ * @param {boolean} props.isInCart Indica si el producto ya está en el carrito.
  * @param {Function} props.onAddToCart Función para agregar el producto al carrito.
  * @param {Function} props.onViewDetails Función para mostrar el detalle del producto.
  */
-function ProductCard({ product, onAddToCart, onViewDetails }) {
+function ProductCard({
+  product,
+  isInCart,
+  onAddToCart,
+  onViewDetails,
+}) {
   return (
     <article className="product-card">
       <img
@@ -48,7 +54,7 @@ function ProductCard({ product, onAddToCart, onViewDetails }) {
             onClick={() => onAddToCart(product)}
             className="product-card__button"
           >
-            Agregar al carrito
+            {isInCart ? "En el carrito · Agregar otro" : "Agregar al carrito"}
           </button>
         </div>
       </div>

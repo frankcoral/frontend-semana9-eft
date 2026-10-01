@@ -1,14 +1,14 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Navbar from "./components/Navbar";
 import SearchBar from "./components/SearchBar";
 import ProductList from "./components/ProductList";
 import Cart from "./components/Cart";
 import Carousel from "./components/Carousel";
 import ProductModal from "./components/ProductModal";
-import products from "./data/products";
 import "./App.css";
 
 const CART_STORAGE_KEY = "gamezone-cart";
+const CART_CHANNEL_NAME = "gamezone-cart-sync";
 
 function getStoredCart() {
   try {
@@ -21,16 +21,129 @@ function getStoredCart() {
 }
 
 function App() {
+  const [products, setProducts] = useState([]);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(true);
+  const [productsError, setProductsError] = useState("");
+
   const [cart, setCart] = useState(getStoredCart);
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("Todas");
   const [notification, setNotification] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
 
+  const cartChannelRef = useRef(null);
+
+  /**
+   * Carga el catálogo desde un archivo JSON local.
+   * AbortController evita actualizar el estado si el componente se desmonta
+   * mientras la solicitud todavía está en curso.
+   */
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const loadProducts = async () => {
+      try {
+        setIsLoadingProducts(true);
+        setProductsError("");
+
+        const response = await fetch(
+          `${import.meta.env.BASE_URL}data/products.json`,
+          { signal: controller.signal },
+        );
+
+        if (!response.ok) {
+          throw new Error(`Error HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        const productsWithImages = data.map((product) => ({
+          ...product,
+          image: `${import.meta.env.BASE_URL}${product.image}`,
+        }));
+
+        setProducts(productsWithImages);
+      } catch (error) {
+        if (error.name !== "AbortError") {
+          console.error("No fue posible cargar el catálogo.", error);
+          setProductsError(
+            "No fue posible cargar el catálogo. Intenta nuevamente más tarde.",
+          );
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsLoadingProducts(false);
+        }
+      }
+    };
+
+    loadProducts();
+
+    return () => controller.abort();
+  }, []);
+
+  /**
+   * Persiste el carrito en localStorage cada vez que cambia.
+   */
   useEffect(() => {
     localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
   }, [cart]);
 
+  /**
+   * Mantiene el carrito sincronizado entre pestañas mediante BroadcastChannel.
+   * La conexión se cierra al desmontar el componente.
+   */
+  useEffect(() => {
+    if (!("BroadcastChannel" in window)) {
+      return undefined;
+    }
+
+    const channel = new BroadcastChannel(CART_CHANNEL_NAME);
+    cartChannelRef.current = channel;
+
+    channel.onmessage = (event) => {
+      if (Array.isArray(event.data)) {
+        setCart(event.data);
+      }
+    };
+
+    return () => {
+      channel.close();
+      cartChannelRef.current = null;
+    };
+  }, []);
+
+  /**
+   * Mantiene el evento storage como respaldo para cambios de localStorage
+   * realizados desde otra pestaña.
+   */
+  useEffect(() => {
+    const handleStorageChange = (event) => {
+      if (event.key !== CART_STORAGE_KEY) {
+        return;
+      }
+
+      try {
+        const updatedCart = event.newValue ? JSON.parse(event.newValue) : [];
+        setCart(updatedCart);
+      } catch (error) {
+        console.error(
+          "No fue posible sincronizar el carrito mediante localStorage.",
+          error,
+        );
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+    };
+  }, []);
+
+  /**
+   * Oculta automáticamente las notificaciones después de unos segundos.
+   */
   useEffect(() => {
     if (!notification) {
       return undefined;
@@ -50,13 +163,22 @@ function App() {
     });
   };
 
+  const publishCartUpdate = (nextCart) => {
+    cartChannelRef.current?.postMessage(nextCart);
+  };
+
   const addToCart = (product) => {
     const cartItem = {
       ...product,
       cartItemId: `${product.id}-${Date.now()}`,
     };
 
-    setCart((currentCart) => [...currentCart, cartItem]);
+    setCart((currentCart) => {
+      const nextCart = [...currentCart, cartItem];
+      publishCartUpdate(nextCart);
+      return nextCart;
+    });
+
     showNotification(`${product.name} fue agregado al carrito.`);
   };
 
@@ -65,9 +187,14 @@ function App() {
       (product) => product.cartItemId === cartItemId,
     );
 
-    setCart((currentCart) =>
-      currentCart.filter((product) => product.cartItemId !== cartItemId),
-    );
+    setCart((currentCart) => {
+      const nextCart = currentCart.filter(
+        (product) => product.cartItemId !== cartItemId,
+      );
+
+      publishCartUpdate(nextCart);
+      return nextCart;
+    });
 
     if (removedProduct) {
       showNotification(`${removedProduct.name} fue eliminado del carrito.`);
@@ -131,20 +258,14 @@ function App() {
 
         <SearchBar search={search} onSearchChange={setSearch} />
 
-        {filteredProducts.length > 0 ? (
-          <ProductList
-            products={filteredProducts}
-            onAddToCart={addToCart}
-            onViewDetails={setSelectedProduct}
-          />
-        ) : (
-          <section id="productos" className="products-section">
-            <p className="products-empty">
-              No se encontraron videojuegos para la búsqueda o categoría
-              seleccionada.
-            </p>
-          </section>
-        )}
+        <ProductList
+          products={filteredProducts}
+          cart={cart}
+          isLoading={isLoadingProducts}
+          error={productsError}
+          onAddToCart={addToCart}
+          onViewDetails={setSelectedProduct}
+        />
 
         <Cart cart={cart} onRemoveFromCart={removeFromCart} />
       </main>
