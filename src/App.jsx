@@ -325,7 +325,7 @@ function App() {
         <ContactForm />
       </main>
 
-      <footer className="footer">
+      <footer className="footer py-4 text-center">
         <p>© 2026 GameZone. Todos los derechos reservados.</p>
         <p>Contacto: contacto@gamezone.cl</p>
       </footer>
