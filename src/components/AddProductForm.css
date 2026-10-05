@@ -1,0 +1,70 @@
+.catalog-manager {
+  scroll-margin-top: 5rem;
+}
+
+.catalog-manager__form {
+  background: #151b23;
+  border: 1px solid #2d3744;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.18);
+}
+
+.catalog-manager__form .form-label {
+  color: #f8fafc;
+  font-weight: 600;
+}
+
+.catalog-manager__form .form-control,
+.catalog-manager__form .form-select {
+  min-height: 48px;
+  color: #f8fafc;
+  background-color: #0d1218;
+  border-color: #384454;
+}
+
+.catalog-manager__form textarea.form-control {
+  min-height: 140px;
+  resize: vertical;
+}
+
+.catalog-manager__form .form-control::placeholder {
+  color: #94a3b8;
+}
+
+.catalog-manager__form .form-control:focus,
+.catalog-manager__form .form-select:focus {
+  color: #ffffff;
+  background-color: #0d1218;
+  border-color: #7c3aed;
+  box-shadow: 0 0 0 0.2rem rgba(124, 58, 237, 0.2);
+}
+
+.catalog-manager__form .form-select {
+  color-scheme: dark;
+}
+
+.catalog-manager__form .form-control.is-invalid {
+  border-color: #ef4444;
+}
+
+.catalog-manager__form .invalid-feedback {
+  font-weight: 500;
+}
+
+.catalog-manager__help {
+  margin-top: 0.4rem;
+  color: #94a3b8;
+  font-size: 0.875rem;
+}
+
+.catalog-manager__button {
+  min-height: 48px;
+  font-weight: 700;
+  background-color: #7c3aed;
+  border-color: #7c3aed;
+}
+
+.catalog-manager__button:hover,
+.catalog-manager__button:focus {
+  background-color: #6d28d9;
+  border-color: #6d28d9;
+}

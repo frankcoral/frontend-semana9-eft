@@ -5,9 +5,12 @@ import ProductList from "./components/ProductList";
 import Cart from "./components/Cart";
 import Carousel from "./components/Carousel";
 import ProductModal from "./components/ProductModal";
+import ContactForm from "./components/ContactForm";
+import AddProductForm from "./components/AddProductForm";
 import "./App.css";
 
 const CART_STORAGE_KEY = "gamezone-cart";
+const CATALOG_STORAGE_KEY = "gamezone-products";
 const CART_CHANNEL_NAME = "gamezone-cart-sync";
 
 function getStoredCart() {
@@ -20,10 +23,27 @@ function getStoredCart() {
   }
 }
 
+function getStoredProducts() {
+  try {
+    const storedProducts = localStorage.getItem(CATALOG_STORAGE_KEY);
+
+    if (!storedProducts) {
+      return null;
+    }
+
+    const parsedProducts = JSON.parse(storedProducts);
+    return Array.isArray(parsedProducts) ? parsedProducts : null;
+  } catch (error) {
+    console.error("No fue posible recuperar el catálogo guardado.", error);
+    return null;
+  }
+}
+
 function App() {
   const [products, setProducts] = useState([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
   const [productsError, setProductsError] = useState("");
+  const [catalogReady, setCatalogReady] = useState(false);
 
   const [cart, setCart] = useState(getStoredCart);
   const [search, setSearch] = useState("");
@@ -33,15 +53,19 @@ function App() {
 
   const cartChannelRef = useRef(null);
 
-  /**
-   * Carga el catálogo desde un archivo JSON local.
-   * AbortController evita actualizar el estado si el componente se desmonta
-   * mientras la solicitud todavía está en curso.
-   */
   useEffect(() => {
     const controller = new AbortController();
 
     const loadProducts = async () => {
+      const storedProducts = getStoredProducts();
+
+      if (storedProducts) {
+        setProducts(storedProducts);
+        setIsLoadingProducts(false);
+        setCatalogReady(true);
+        return;
+      }
+
       try {
         setIsLoadingProducts(true);
         setProductsError("");
@@ -63,6 +87,7 @@ function App() {
         }));
 
         setProducts(productsWithImages);
+        setCatalogReady(true);
       } catch (error) {
         if (error.name !== "AbortError") {
           console.error("No fue posible cargar el catálogo.", error);
@@ -82,17 +107,18 @@ function App() {
     return () => controller.abort();
   }, []);
 
-  /**
-   * Persiste el carrito en localStorage cada vez que cambia.
-   */
+  useEffect(() => {
+    if (!catalogReady || productsError) {
+      return;
+    }
+
+    localStorage.setItem(CATALOG_STORAGE_KEY, JSON.stringify(products));
+  }, [products, catalogReady, productsError]);
+
   useEffect(() => {
     localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
   }, [cart]);
 
-  /**
-   * Mantiene el carrito sincronizado entre pestañas mediante BroadcastChannel.
-   * La conexión se cierra al desmontar el componente.
-   */
   useEffect(() => {
     if (!("BroadcastChannel" in window)) {
       return undefined;
@@ -113,10 +139,6 @@ function App() {
     };
   }, []);
 
-  /**
-   * Mantiene el evento storage como respaldo para cambios de localStorage
-   * realizados desde otra pestaña.
-   */
   useEffect(() => {
     const handleStorageChange = (event) => {
       if (event.key !== CART_STORAGE_KEY) {
@@ -141,9 +163,6 @@ function App() {
     };
   }, []);
 
-  /**
-   * Oculta automáticamente las notificaciones después de unos segundos.
-   */
   useEffect(() => {
     if (!notification) {
       return undefined;
@@ -199,6 +218,37 @@ function App() {
     if (removedProduct) {
       showNotification(`${removedProduct.name} fue eliminado del carrito.`);
     }
+  };
+
+  const deleteProduct = (productId) => {
+    const productToDelete = products.find(
+      (product) => product.id === productId,
+    );
+
+    setProducts((currentProducts) =>
+      currentProducts.filter((product) => product.id !== productId),
+    );
+
+    setSelectedProduct((currentProduct) =>
+      currentProduct?.id === productId ? null : currentProduct,
+    );
+
+    if (productToDelete) {
+      showNotification(`${productToDelete.name} fue eliminado del catálogo.`);
+    }
+  };
+
+  const addProduct = (productData) => {
+    const newProduct = {
+      ...productData,
+      id: Date.now(),
+      image: productData.image || `${import.meta.env.BASE_URL}favicon.svg`,
+    };
+
+    setProducts((currentProducts) => [...currentProducts, newProduct]);
+    setActiveCategory("Todas");
+    setSearch("");
+    showNotification(`${newProduct.name} fue agregado al catálogo.`);
   };
 
   const changeCategory = (category) => {
@@ -265,9 +315,14 @@ function App() {
           error={productsError}
           onAddToCart={addToCart}
           onViewDetails={setSelectedProduct}
+          onDeleteProduct={deleteProduct}
         />
 
+        <AddProductForm onAddProduct={addProduct} />
+
         <Cart cart={cart} onRemoveFromCart={removeFromCart} />
+
+        <ContactForm />
       </main>
 
       <footer className="footer">

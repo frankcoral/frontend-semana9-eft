@@ -10,6 +10,7 @@ import ProductCard from "./ProductCard";
  * @param {string} props.error Mensaje de error al cargar el catálogo.
  * @param {Function} props.onAddToCart Función para agregar productos al carrito.
  * @param {Function} props.onViewDetails Función para mostrar detalles del producto.
+ * @param {Function} props.onDeleteProduct Función para eliminar un producto del catálogo.
  */
 function ProductList({
   products,
@@ -18,6 +19,7 @@ function ProductList({
   error,
   onAddToCart,
   onViewDetails,
+  onDeleteProduct,
 }) {
   return (
     <section id="productos" className="products-section">
@@ -57,6 +59,7 @@ function ProductList({
                 isInCart={isInCart}
                 onAddToCart={onAddToCart}
                 onViewDetails={onViewDetails}
+                onDeleteProduct={onDeleteProduct}
               />
             );
           })}

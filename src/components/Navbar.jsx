@@ -24,7 +24,7 @@ function Navbar({ cartCount, onCategoryChange }) {
   };
 
   return (
-    <nav className="navbar" aria-label="Navegación principal">
+    <nav className="navbar navbar-expand-lg" aria-label="Navegación principal">
       <div className="navbar__top">
         <a href="#inicio" className="navbar__brand" onClick={closeNavigation}>
           GameZone
@@ -85,6 +85,10 @@ function Navbar({ cartCount, onCategoryChange }) {
             ))}
           </div>
         </div>
+
+        <a href="#contacto" onClick={closeNavigation}>
+          Contacto
+        </a>
 
         <a href="#carrito" className="navbar__cart" onClick={closeNavigation}>
           Carrito
